@@ -1,0 +1,132 @@
+// colors
+$c-primary: #26bec9;
+$c-danger: #ef7a70;
+$c-warning: #ffb400;
+$c-secondary: #138184;
+$c-white: #fff;
+.nav-year, .nav-month {
+	display: flex;
+	.item {
+		position: static;
+		> a, > .year {
+			text-align: center;
+			min-width: 80px;
+			font-size: 14px;
+			color: #666;
+			display: inline-block;
+		}
+	}
+}
+.nav-year {
+	overflow: scroll;
+	position: relative;
+	padding-top: 10px;
+	.item-year {
+		> .year {
+			position: sticky;
+			left: 0px;
+			width: 80px;
+		}
+	}
+	> .underline {
+		position: absolute;
+		bottom: 0px;
+		height: 3px;
+		background-color: $c-primary;;
+	}
+}
+.nav-month {
+	border-bottom: 1px solid #eee;
+	.item-month {
+		border-bottom: 3px solid transparent;
+		> a:hover{
+			background-color: transparent;
+		}
+		&.active {
+			color:$c-primary;
+			a {
+				color: $c-primary;
+			}
+		}
+	}
+
+}
+
+.table-wrapper {
+	position: relative;
+}
+
+.date-table {
+	width: 100%;
+	padding: 5px;
+	border-collapse: separate;
+	table-layout: fixed;
+	font-size: 14px;
+	border-spacing: 0px 4px;
+}
+
+.cell-day {
+	padding: 12px 0;
+	text-align: center;
+	color: #666;
+	font-weight: normal;
+}
+
+.cell-date {
+	position: relative;
+	text-align: center;
+	vertical-align: baseline;
+
+	.date-num {
+		display: inline-block;
+		position: relative;
+		width: 32px;
+		height: 32px;
+		line-height: 32px;
+		border-radius: 50%;
+	}
+
+	&.selectable {
+		cursor: pointer;
+	}
+
+	&.selected, &.selecting {
+		.date-num {
+			color: $c-white;
+			background-color: $c-primary;
+		}
+	}
+
+	&.selected {
+		background-color: $c-primary;
+		&.selected-start {
+			background-image: linear-gradient(90deg, $c-white 0%, $c-white 50%, transparent 50%, transparent 100%);
+		}
+		&.selected-end {
+			background-image: linear-gradient(90deg, transparent 0%, transparent 50%, $c-white 50%, $c-white 100%);
+		}
+		&.selected-start.selected-end {
+			background: transparent none;
+		}
+	}
+}
+
+.cell-date.disabled {
+	cursor: not-allowed;
+	color: #cccccc;
+	background-color: transparent;
+
+	.date-num {
+		text-decoration: line-through;
+	}
+}
+
+.cell-date.today {
+	color: $c-primary;
+}
+
+.bottom {
+	padding: 20px 20px 5px;
+	border-top: 1px solid #eee;
+	color: #666;
+}
