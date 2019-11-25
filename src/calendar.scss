@@ -4,15 +4,19 @@ $c-danger: #ef7a70;
 $c-warning: #ffb400;
 $c-secondary: #138184;
 $c-white: #fff;
+
+.calendar {
+	position: relative;
+}
+
 .nav-year, .nav-month {
-	display: flex;
+	white-space: nowrap;
 	.item {
-		position: static;
-		> a, > .year {
+		float: none;
+		display: inline-block;
+		.month, .year {
 			text-align: center;
 			min-width: 80px;
-			font-size: 14px;
-			color: #666;
 			display: inline-block;
 		}
 	}
@@ -22,13 +26,15 @@ $c-white: #fff;
 	position: relative;
 	padding-top: 10px;
 	.item-year {
-		> .year {
+		.year {
+			font-size: 12px;
+			color: #999;
 			position: sticky;
 			left: 0px;
 			width: 80px;
 		}
 	}
-	> .underline {
+	.underline {
 		position: absolute;
 		bottom: 0px;
 		height: 3px;
@@ -39,12 +45,14 @@ $c-white: #fff;
 	border-bottom: 1px solid #eee;
 	.item-month {
 		border-bottom: 3px solid transparent;
-		> a:hover{
+		.month {
+			font-size: 14px;
+			color: #333;
 			background-color: transparent;
 		}
 		&.active {
 			color:$c-primary;
-			a {
+			.month {
 				color: $c-primary;
 			}
 		}
@@ -68,7 +76,8 @@ $c-white: #fff;
 .cell-day {
 	padding: 12px 0;
 	text-align: center;
-	color: #666;
+	color: #999;
+	font-size: 12px;
 	font-weight: normal;
 }
 
@@ -118,6 +127,7 @@ $c-white: #fff;
 
 	.date-num {
 		text-decoration: line-through;
+		background-color: transparent;
 	}
 }
 
@@ -130,3 +140,23 @@ $c-white: #fff;
 	border-top: 1px solid #eee;
 	color: #666;
 }
+
+.error-msg {
+	position: absolute;
+	top: 10px;
+	left: 50%;
+	transform: translateX(-50%);
+	color: $c-white;
+	background-color: $c-primary;
+	padding: 6px 15px;
+	border-radius: 20px;
+	visibility: hidden;
+	opacity: 0;
+	transition: visibility 0s ease .3s, opacity .3s;
+	&.active {
+		visibility: visible;
+		opacity: 1;
+		transition: visibility 0s ease 0s, opacity .3s;
+	}
+}
+

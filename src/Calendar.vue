@@ -11,7 +11,7 @@
 						:class="{ active: currentMonthIdx === idx }"
 						class="item item-month"
 						@click="changeMonth(idx)">
-						<a>{{ months[idx].text }}</a>
+						<a class="month">{{ months[idx].text }}</a>
 					</li>
 				</ul>
 			</li>
@@ -47,6 +47,9 @@
 		<div v-if="isRangeMode" class="bottom">
 			<i class="fa fa-info-circle"></i> 此方案最少預定 {{ minSpan }} 天，最多 {{ maxSpan }} 天
 		</div>
+		<div :class="{ active: isShowError }" class="error-msg">
+			{{ errorMsg }}
+		</div>
 	</div>
 </template>
 
@@ -55,7 +58,6 @@ import moment from 'moment';
 import _ from 'lodash';
 import 'owl.carousel';
 import './owl.verticalswiping';
-// import './owl.translateevent';
 import './calendar.scss';
 import calendarSettings from './calendarSettings';
 
@@ -67,13 +69,13 @@ const ERROR_CODES = {
 };
 
 // temp lang
-// _.assign(window.__INIT_STATE__.lang, {
-// 	calendar_error_above_max: '最多 %s 天',
-// 	calendar_error_below_min: '最少 %s 天',
-// 	calendar_error_has_invalid: '包含無法選擇的日期',
-// 	calendar_error_missing_end_date: '請選擇結束日期',
-// 	date_span_days: '天',
-// });
+const TEMP_LANG =  {
+	calendar_error_above_max: '最多 %s 天',
+	calendar_error_below_min: '最少 %s 天',
+	calendar_error_has_invalid: '包含無法選擇的日期',
+	calendar_error_missing_end_date: '請選擇結束日期',
+	date_span_days: '天',
+};
 
 const calendarSettingDefault = {
 	'displayDateFormat': 'ddd, D MMMM',
@@ -139,13 +141,15 @@ export default {
 			displayMoment: (this.initialDate ? moment(this.initialDate, this.dateFormat) : moment()).startOf('month'),
 			startDateObj: null,
 			endDateObj: null,
-			hoveringDateObj: null,
-			errorCode: null,
 			currentMonthIdx: null,
 			dateCarousel: null,
 			underlineStyle: null,
 			transitionDuration: 150,
 			monthTabsWidth: [],
+			monthTabsOffset: [],
+			errorMsg: null,
+			errorTimeout: null,
+			isShowError: false,
 		};
 	},
 	computed: {
@@ -251,43 +255,6 @@ export default {
 		dateSpan() {
 			return this.isSelected ? this.endDateObj.diff(this.startDateObj, 'days') + 1 : null;
 		},
-		// monthTabsWidth() {
-		//
-		// },
-	// 	hint() {
-	// 		if(!this.isSelecting) {
-	// 			return null;
-	// 		}
-	//
-	// 		switch (this.errorCode) {
-	// 			case ERROR_CODES.BELOW_MIN:
-	// 				return {
-	// 					dateObj: this.hoveringDateObj,
-	// 					text: this.printf(this.lang('calendar_error_below_min'), [this.minSpan]),
-	// 				};
-	// 			case ERROR_CODES.ABOVE_MAX:
-	// 				return {
-	// 					dateObj: this.hoveringDateObj,
-	// 					text: this.printf(this.lang('calendar_error_above_max'), [this.maxSpan]),
-	// 				};
-	// 			case ERROR_CODES.HAS_INVALID:
-	// 				return {
-	// 					dateObj: this.hoveringDateObj,
-	// 					text: this.lang('calendar_error_has_invalid'),
-	// 				};
-	// 			default:
-	// 				return {
-	// 					dateObj: this.startDateObj,
-	// 					text: this.lang('calendar_error_missing_end_date'),
-	// 				};
-	// 		}
-	// 	},
-	// 	isOnMinMonth() {
-	// 		return !!(this.minDate && this.displayMoment.isSameOrBefore(moment(this.minDate, this.dateFormat), 'month'));
-	// 	},
-	// 	isOnMaxMonth() {
-	// 		return !!(this.maxDate && this.displayMoment.isSameOrAfter(moment(this.maxDate, this.dateFormat), 'month'));
-	// 	},
 	},
 	watch: {
 		emitValue() {
@@ -329,40 +296,19 @@ export default {
 			this.dateCarousel.$element.trigger('to.owl.carousel', [idx, 0]);
 			// move underline
 			$(this.$refs.underline).css({
-				left: _.sum(_.slice(this.monthTabsWidth, 0, idx)),
+				left: this.monthTabsOffset[idx],
 				width: this.monthTabsWidth[idx],
 			});
 			// scroll month tabs
 			this.checkMonthTabVisible();
 		},
-	// 	startDateObj() {
-	// 		if(this.isSelecting) {
-	// 			this.checkRangeValid(this.startDateObj, this.hoveringDateObj);
-	// 		}
-	// 	},
-	// 	hoveringDateObj() {
-	// 		if(this.isSelecting) {
-	// 			this.checkRangeValid(this.startDateObj, this.hoveringDateObj);
-	// 		}
-	// 	},
-	// },
-	// mounted() {
-	// 	// cancel selecting when click outside of calendar
-	// 	document.addEventListener('click', event => {
-	// 		if(!this.$el.contains(event.target) && this.isSelecting) {
-	// 			this.setSelectedDates(null, null);
-	// 		}
-	// 	});
-	// 	// cancel selecting when press ESC
-	// 	document.addEventListener('keydown', event => {
-	// 		if(event.keyCode === 27 && this.isSelecting) {
-	// 			this.setSelectedDates(null, null);
-	// 		}
-	// 	});
 	},
 	mounted() {
 		this.monthTabsWidth = _.map(this.$refs.monthTab, (monthTab) => {
 			return $(monthTab).outerWidth();
+		});
+		this.monthTabsOffset = _.map(this.$refs.monthTab, (monthTab, idx) => {
+			return _.sum(_.slice(this.monthTabsWidth, 0, idx));
 		});
 		this.currentMonthIdx = this.displayMoment.diff(moment(this.minDate, this.dateFormat), 'M');
 		this.initCarousel();
@@ -393,38 +339,37 @@ export default {
 			});
 		},
 		onDragging() {
-			const matrix = this.dateCarousel.$stage.css('transform').replace(/[^0-9\-.,]/g, '').split(',');
-			const translateX = _.toNumber(matrix[12]) || _.toNumber(matrix[4]);
+			const translateMatrix = this.dateCarousel.$stage.css('transform').replace(/[^0-9\-.,]/g, '').split(',');
+			const translateX = _.toNumber(translateMatrix[12]) || _.toNumber(translateMatrix[4]);
 			const idxFloat = -(translateX / this.dateCarousel.width());
-			let underlineLeft = 0;
-			let underlineWidth = _.head(this.monthTabsWidth);
+			let underlineLeft;
+			let underlineWidth;
 
-			if(idxFloat > 0) {
+			if(idxFloat >= 0) {
 				const idx = _.floor(idxFloat);
-				const beforeTabsWidth = _.sum(_.slice(this.monthTabsWidth, 0, idx));
-				underlineLeft = beforeTabsWidth + (idxFloat % 1) * this.monthTabsWidth[idx];
+				underlineLeft = this.monthTabsOffset[idx] + (idxFloat % 1) * this.monthTabsWidth[idx];
 				if(idxFloat > this.monthTabsWidth.length) {
 					underlineWidth = _.last(this.monthTabsWidth);
 				} else {
 					underlineWidth = this.monthTabsWidth[idx] + (this.monthTabsWidth[idx + 1] - this.monthTabsWidth[idx]) * (idxFloat % 1);
 				}
 			} else {
+				underlineWidth = _.head(this.monthTabsWidth);
 				underlineLeft = underlineWidth * idxFloat;
 			}
-			// jquery sets css much faster than vue does
+
+			this.removeUnderlineAnimate();
 			$(this.$refs.underline).css({
 				left: underlineLeft,
 				width: underlineWidth,
-			}).css({
-				transition: '',
 			});
 		},
 		setUnderlineAnimate() {
 			const idx = this.dateCarousel.current();
 			$(this.$refs.underline).css({
-				left: _.sum(_.slice(this.monthTabsWidth, 0, idx)),
+				left: this.monthTabsOffset[idx],
 				width: this.monthTabsWidth[idx],
-				transition: (this.transitionDuration / 1000) + 's ease-out',
+				transition: (this.transitionDuration / 1000) + 's ease',
 			});
 		},
 		removeUnderlineAnimate() {
@@ -436,9 +381,8 @@ export default {
 			const navYear = this.$refs.navYear;
 			const navWidth = navYear.clientWidth;
 			const navScrollLeft = navYear.scrollLeft;
-			const tab = this.$refs.monthTab[this.currentMonthIdx];
-			const tabWidth = tab.clientWidth;
-			const tabOffsetLeft = tab.offsetLeft;
+			const tabWidth = this.monthTabsWidth[this.currentMonthIdx];
+			const tabOffsetLeft = this.monthTabsOffset[this.currentMonthIdx];
 
 			if(tabOffsetLeft < navScrollLeft) {
 				// scroll to left
@@ -452,30 +396,23 @@ export default {
 				}, this.transitionDuration);
 			}
 		},
-	// 	prevMonth() {
-	// 		if(this.isOnMinMonth) {
-	// 			return;
-	// 		}
-	// 		this.displayMoment = this.displayMoment.subtract(1, 'M').clone();
-	// 	},
-	// 	nextMonth() {
-	// 		if(this.isOnMaxMonth) {
-	// 			return;
-	// 		}
-	// 		this.displayMoment = this.displayMoment.add(1, 'M').clone();
-	// 	},
 		onDateClick(dateObj) {
-			// reset hoveringDateObj when click date
-			this.hoveringDateObj = null;
-
 			if(this.isRangeMode) {
 				if(this.isSelected || !this.startDateObj || dateObj.isBefore(this.startDateObj, 'day')) {
 					// set startDate
 					this.setSelectedDates(dateObj, null);
-					this.hoveringDateObj = dateObj;
 				} else {
 					// complete range
-					this.setSelectedDates(this.startDateObj, dateObj);
+					const result = this.checkRangeValid(this.startDateObj, dateObj);
+					if(result.isValid) {
+						this.setSelectedDates(this.startDateObj, dateObj);
+					} else {
+						// clear
+						this.setSelectedDates(null, null);
+						if(result.errorMsg) {
+							this.showErrorMsg(result.errorMsg);
+						}
+					}
 				}
 			} else { // single date
 				if(this.isSelected && dateObj.isSame(this.startDateObj, 'day')) {
@@ -487,16 +424,6 @@ export default {
 				}
 			}
 		},
-	// 	onDateMouseEnter(dateObj) {
-	// 		if(this.isSelecting) {
-	// 			this.hoveringDateObj = dateObj;
-	// 		}
-	// 	},
-	// 	onDateMouseLeave(dateObj) {
-	// 		if(this.isSelecting) {
-	// 			this.hoveringDateObj = null;
-	// 		}
-	// 	},
 		setSelectedDates(startDateObj, endDateObj) {
 			// reset
 			this.startDateObj = this.endDateObj = null;
@@ -507,7 +434,7 @@ export default {
 			if(!endDateObj && this.checkSelectable(startDateObj)) {
 				// set start date only
 				this.startDateObj = startDateObj;
-			} else if(endDateObj && this.checkRangeValid(startDateObj, endDateObj)) {
+			} else if(endDateObj && this.checkRangeValid(startDateObj, endDateObj).isValid) {
 				// set both start date and end date
 				this.startDateObj = startDateObj;
 				this.endDateObj = endDateObj;
@@ -529,34 +456,48 @@ export default {
 			return true;
 		},
 		checkRangeValid(startDateObj, endDateObj) {
-			this.errorCode = null;
 			if(!startDateObj || !endDateObj) {
-				return false;
+				return {
+					isValid: false,
+					errorMsg: null,
+				};
 			}
 			if(startDateObj.isAfter(endDateObj, 'day')) {
-				return false;
+				return {
+					isValid: false,
+					errorMsg: null,
+				};
 			}
 
 			const dateObjCursor = startDateObj.clone();
 			while(dateObjCursor.isSameOrBefore(endDateObj, 'day')) {
 				if(!this.checkSelectable(dateObjCursor)) {
-					this.errorCode = ERROR_CODES.HAS_INVALID;
-					return false;
+					return {
+						isValid: false,
+						errorMsg: TEMP_LANG.calendar_error_has_invalid,
+					};
 				}
 				dateObjCursor.add(1, 'd');
 			}
 
 			const span = endDateObj.diff(startDateObj, 'days') + 1;
 			if(this.minSpan > 0 && this.minSpan > span) {
-				this.errorCode = ERROR_CODES.BELOW_MIN;
-				return false;
+				return {
+					isValid: false,
+					errorMsg: TEMP_LANG.calendar_error_below_min.replace('%s', this.minSpan),
+				};
 			}
 			if(this.maxSpan > 0 && this.maxSpan < span) {
-				this.errorCode = ERROR_CODES.ABOVE_MAX;
-				return false;
+				return {
+					isValid: false,
+					errorMsg: TEMP_LANG.calendar_error_above_max.replace('%s', this.maxSpan),
+				};
 			}
 
-			return true;
+			return {
+				isValid: true,
+				errorMsg: null,
+			};
 		},
 		changeMonth(idx) {
 			this.removeUnderlineAnimate();
@@ -603,9 +544,23 @@ export default {
 				}
 			}
 
-
-
 			return classList;
+		},
+		showErrorMsg(msg) {
+			if(!msg) {
+				return;
+			}
+
+			if(this.errorTimeout) {
+				// clear unfinished timeout
+				clearTimeout(this.errorTimeout);
+			}
+			this.errorMsg = msg;
+			this.isShowError = true;
+			this.errorTimeout = setTimeout(() => {
+				this.isShowError = false;
+				this.errorTimeout = null;
+			}, 3000);
 		},
 	},
 };
