@@ -15,7 +15,7 @@
 					</li>
 				</ul>
 			</li>
-			<div ref="underline" class="underline" :style="underlineStyle"></div>
+			<div ref="underline" class="underline"></div>
 		</ul>
 		<div class="table-wrapper">
 			<div ref='dateCarousel' class="owl-carousel">
@@ -45,6 +45,9 @@
 			<div class="hint"></div>
 		</div>
 		<div v-if="isRangeMode" class="bottom">
+			<div class="selected-date">
+				{{ displaySelectedDate }}
+			</div>
 			<i class="fa fa-info-circle"></i> 此方案最少預定 {{ minSpan }} 天，最多 {{ maxSpan }} 天
 		</div>
 		<div :class="{ active: isShowError }" class="error-msg">
@@ -73,14 +76,16 @@ const TEMP_LANG =  {
 	calendar_error_above_max: '最多 %s 天',
 	calendar_error_below_min: '最少 %s 天',
 	calendar_error_has_invalid: '包含無法選擇的日期',
-	calendar_error_missing_end_date: '請選擇結束日期',
+	end_date: '結束日期',
+	select_range: '請選擇日期區間',
 	date_span_days: '天',
 };
 
 const calendarSettingDefault = {
-	'displayDateFormat': 'ddd, D MMMM',
-	'displayMonthFormat': 'MMMM YYYY',
-	'firstDayOfWeek': 0,
+	displayDateFormat: 'ddd, D MMM',
+	displayMonthFormat: 'MMM',
+	displayDayFormat: 'ddd',
+	firstDayOfWeek: 0,
 };
 
 export default {
@@ -103,12 +108,10 @@ export default {
 		},
 		minDate: {
 			type: String,
-			default: null,
 			required: true,
 		},
 		maxDate: {
 			type: String,
-			default: null,
 			required: true,
 		},
 		minSpan: {
@@ -123,17 +126,9 @@ export default {
 			type: Function,
 			default: null,
 		},
-		getInfo: {
-			type: Function,
-			default: null,
-		},
 		langCode: {
 			type: String,
 			default: 'en',
-		},
-		isLoading: {
-			type: Boolean,
-			default: false,
 		},
 	},
 	data() {
@@ -142,9 +137,8 @@ export default {
 			startDateObj: null,
 			endDateObj: null,
 			currentMonthIdx: null,
-			dateCarousel: null,
-			underlineStyle: null,
-			transitionDuration: 150,
+			dateCarouselObj: null,
+			transitionDuration: 300,
 			monthTabsWidth: [],
 			monthTabsOffset: [],
 			errorMsg: null,
@@ -180,7 +174,6 @@ export default {
 			_.forEach(this.months, (month, idx) => {
 				_.setWith(yearMonthsIdx, [month.year, month.month], idx, Object);
 			});
-			console.log(yearMonthsIdx);
 			return yearMonthsIdx;
 		},
 		monthDateRows() {
@@ -209,19 +202,6 @@ export default {
 				return dateRows;
 			});
 		},
-	// 	datesInfo() {
-	// 		if(!_.isFunction(this.getInfo)) {
-	// 			return null;
-	// 		}
-	// 		return _.reduce(_.times(this.displayMoment.daysInMonth()), (result, value) => {
-	// 			const dateObj = this.displayMoment.clone().date(value + 1);
-	// 			result[value + 1] = this.getInfo(dateObj);
-	// 			return result;
-	// 		}, {});
-	// 	},
-	// 	currentMonthText() {
-	// 		return moment(this.displayMoment).locale(this.langCode).format(this.calendarSetting.displayMonthFormat);
-	// 	},
 		isSelecting() {
 			return !!(this.isRangeMode && this.startDateObj && !this.endDateObj);
 		},
@@ -242,15 +222,21 @@ export default {
 			}
 		},
 		displaySelectedDate() {
-			if(!this.isSelected) {
-				return null;
-			}
 			const displayDateFormat = this.calendarSetting.displayDateFormat;
-			if(this.dateSpan > 1) {
-				return `${ moment(this.startDateObj).locale(this.langCode).format(displayDateFormat) } ~ ${ moment(this.endDateObj).locale(this.langCode).format(displayDateFormat) }`;
-			} else {
-				return moment(this.startDateObj).locale(this.langCode).format(displayDateFormat);
+			if(this.isSelecting) {
+				return `${ moment(this.startDateObj).locale(this.langCode).format(displayDateFormat) } ~ ${ TEMP_LANG.end_date }`;
 			}
+			if(!this.isSelected) {
+				return TEMP_LANG.select_range;
+			}
+
+			let text;
+			if(this.dateSpan > 1) {
+				text = `${ moment(this.startDateObj).locale(this.langCode).format(displayDateFormat) } ~ ${ moment(this.endDateObj).locale(this.langCode).format(displayDateFormat) }`;
+			} else {
+				text = moment(this.startDateObj).locale(this.langCode).format(displayDateFormat);
+			}
+			return text + `・${ this.dateSpan } ${ TEMP_LANG.date_span_days }`;
 		},
 		dateSpan() {
 			return this.isSelected ? this.endDateObj.diff(this.startDateObj, 'days') + 1 : null;
@@ -293,14 +279,14 @@ export default {
 		},
 		currentMonthIdx(idx) {
 			// show month
-			this.dateCarousel.$element.trigger('to.owl.carousel', [idx, 0]);
+			this.dateCarouselObj.$element.trigger('to.owl.carousel', [idx, 0]);
 			// move underline
 			$(this.$refs.underline).css({
 				left: this.monthTabsOffset[idx],
 				width: this.monthTabsWidth[idx],
 			});
 			// scroll month tabs
-			this.checkMonthTabVisible();
+			this.scrollToMonthTab();
 		},
 	},
 	mounted() {
@@ -310,14 +296,14 @@ export default {
 		this.monthTabsOffset = _.map(this.$refs.monthTab, (monthTab, idx) => {
 			return _.sum(_.slice(this.monthTabsWidth, 0, idx));
 		});
-		this.currentMonthIdx = this.displayMoment.diff(moment(this.minDate, this.dateFormat), 'M');
+		this.currentMonthIdx = _.ceil(this.displayMoment.diff(moment(this.minDate, this.dateFormat), 'M', true));
 		this.initCarousel();
 		this.initUnderline();
 	},
 	methods: {
 		initCarousel() {
 			$(this.$refs.dateCarousel).on('initialized.owl.carousel', (e) => {
-				this.dateCarousel = e.relatedTarget;
+				this.dateCarouselObj = e.relatedTarget;
 			});
 			$(this.$refs.dateCarousel).owlCarousel({
 				items: 1,
@@ -329,7 +315,7 @@ export default {
 			});
 		},
 		initUnderline() {
-			this.dateCarousel.$element.on('touchstart mousedown', (e) => {
+			this.dateCarouselObj.$element.on('touchstart mousedown', (e) => {
 				this.onDragging();
 				$('body').on('touchmove mousemove', this.onDragging);
 				$('body').one('touchend mouseup', () => {
@@ -339,9 +325,8 @@ export default {
 			});
 		},
 		onDragging() {
-			const translateMatrix = this.dateCarousel.$stage.css('transform').replace(/[^0-9\-.,]/g, '').split(',');
-			const translateX = _.toNumber(translateMatrix[12]) || _.toNumber(translateMatrix[4]);
-			const idxFloat = -(translateX / this.dateCarousel.width());
+			const translateX = this.dateCarouselObj.$stage.offset().left - this.dateCarouselObj.$element.offset().left;
+			const idxFloat = -(translateX / this.dateCarouselObj.width());
 			let underlineLeft;
 			let underlineWidth;
 
@@ -365,7 +350,7 @@ export default {
 			});
 		},
 		setUnderlineAnimate() {
-			const idx = this.dateCarousel.current();
+			const idx = this.dateCarouselObj.current();
 			$(this.$refs.underline).css({
 				left: this.monthTabsOffset[idx],
 				width: this.monthTabsWidth[idx],
@@ -377,22 +362,24 @@ export default {
 				transition: '',
 			});
 		},
-		checkMonthTabVisible() {
+		scrollToMonthTab() {
 			const navYear = this.$refs.navYear;
 			const navWidth = navYear.clientWidth;
 			const navScrollLeft = navYear.scrollLeft;
 			const tabWidth = this.monthTabsWidth[this.currentMonthIdx];
 			const tabOffsetLeft = this.monthTabsOffset[this.currentMonthIdx];
+			const leftBoundary = _.max([tabOffsetLeft - tabWidth * 0.5, 0]);
+			const rightBoundary = _.min([tabOffsetLeft + tabWidth * 1.5, navWidth.scrollWidth]);
 
-			if(tabOffsetLeft < navScrollLeft) {
+			if(leftBoundary < navScrollLeft) {
 				// scroll to left
 				$(navYear).animate({
-					scrollLeft: tabOffsetLeft,
+					scrollLeft: leftBoundary,
 				}, this.transitionDuration);
-			} else if(tabOffsetLeft + tabWidth > navScrollLeft + navWidth) {
+			} else if(rightBoundary > navScrollLeft + navWidth) {
 				// scroll to right
 				$(navYear).animate({
-					scrollLeft: tabOffsetLeft + tabWidth - navWidth,
+					scrollLeft: rightBoundary - navWidth,
 				}, this.transitionDuration);
 			}
 		},

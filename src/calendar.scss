@@ -11,6 +11,7 @@ $c-white: #fff;
 
 .nav-year, .nav-month {
 	white-space: nowrap;
+	user-select: none;
 	.item {
 		float: none;
 		display: inline-block;
@@ -22,9 +23,16 @@ $c-white: #fff;
 	}
 }
 .nav-year {
-	overflow: scroll;
 	position: relative;
 	padding-top: 10px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	// Hide IE scrollbar
+	-ms-overflow-style: none;
+	&::-webkit-scrollbar {
+		// Hide Chrome Safari scrollbar
+		display: none;
+	}
 	.item-year {
 		.year {
 			font-size: 12px;
@@ -49,6 +57,7 @@ $c-white: #fff;
 			font-size: 14px;
 			color: #333;
 			background-color: transparent;
+			transition: color .3s;
 		}
 		&.active {
 			color:$c-primary;
@@ -62,6 +71,7 @@ $c-white: #fff;
 
 .table-wrapper {
 	position: relative;
+	user-select: none;
 }
 
 .date-table {
@@ -136,9 +146,17 @@ $c-white: #fff;
 }
 
 .bottom {
-	padding: 20px 20px 5px;
+	text-align: center;
+	padding: 10px 15px;
 	border-top: 1px solid #eee;
-	color: #666;
+	color: #999;
+	.selected-date {
+		color: #666;
+		background-color: #eff9fa;
+		padding: 10px;
+		border-radius: 4px;
+		margin-bottom: 10px;
+	}
 }
 
 .error-msg {
