@@ -29,7 +29,7 @@
   "dependencies": {
     "bootstrap-jquery": "^3.3.2",
     "bootstrap3": "^3.3.5",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "lodash": "^4.17.15",
     "moment": "^2.24.0",
     "node-sass": "^4.13.0",
